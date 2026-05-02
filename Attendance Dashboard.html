@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=1440"/>
+<title>出勤分析儀表板 · DPACS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="data.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="topbar-org.jsx"></script>
+<script type="text/babel" src="month-view.jsx"></script>
+<script type="text/babel" src="week-view.jsx"></script>
+<script type="text/babel" src="day-drawer.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "showWeekView": true,
+  "highlightAnomalies": true,
+  "density": "comfortable",
+  "accentColor": "#0D9488"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [mode, setMode] = React.useState('dept');
+  const [selectedDept, setSelectedDept] = React.useState(MANAGER_SCOPE_ROOTS[0]);
+  const [selectedEmployee, setSelectedEmployee] = React.useState('alice');
+  const [selectedWeek, setSelectedWeek] = React.useState(1); // W15 = index 1
+  const [selectedDay, setSelectedDay] = React.useState(10);
+  const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const [weekMode, setWeekMode] = React.useState('presence');
+  const [weekViewVisible, setWeekViewVisible] = React.useState(false);
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    document.documentElement.style.setProperty('--teal', tweaks.accentColor);
+    document.documentElement.classList.toggle('hide-anomalies', !tweaks.highlightAnomalies);
+  }, [tweaks.accentColor, tweaks.highlightAnomalies]);
+
+  const handleDayClick = (day) => {
+    setSelectedDay(day);
+    if (!weekViewVisible) {
+      setWeekViewVisible(true);
+      setTimeout(() => setDrawerOpen(true), 200);
+    } else {
+      setDrawerOpen(true);
+    }
+  };
+
+  const handleWeekClick = (wi) => {
+    setSelectedWeek(wi);
+    setWeekViewVisible(true);
+  };
+
+  const scopeRoots = React.useMemo(getScopedRoots, []);
+
+  const pageHeader = (() => {
+    const emp = EMPLOYEES.find(e => e.id === selectedEmployee);
+    const node = findNodeInScope(scopeRoots, selectedDept);
+    if (mode === 'dept') {
+      const label = node ? node.label : '（未選取）';
+      const sub = node
+        ? (node.children ? `含所有子部門 · 共 ${node.count} 位員工` : `${node.count} 位員工`)
+        : '';
+      return { title: `${label} · 出勤分析`, subtitle: sub ? `${sub}・分析期間 2026 年 4 月` : '分析期間 2026 年 4 月' };
+    }
+    return {
+      title: emp ? `${emp.name} · 出勤分析` : '請選擇員工',
+      subtitle: emp ? `${emp.deptLabel}・分析期間 2026 年 4 月` : '',
+    };
+  })();
+
+  return (
+    <div className="app" data-screen-label="01 Dashboard">
+      <TopBar mode={mode} setMode={setMode} monthLabel="2026 年 4 月" />
+
+      <div className="main-layout">
+        <OrgSelector
+          mode={mode}
+          selectedDept={selectedDept} setSelectedDept={setSelectedDept}
+          selectedEmployee={selectedEmployee} setSelectedEmployee={setSelectedEmployee}
+        />
+
+        <main className="main-content">
+          <div className="page-header">
+            <div>
+              <h1 className="page-title">{pageHeader.title}</h1>
+              <div className="page-subtitle">{pageHeader.subtitle}</div>
+            </div>
+            <div className="page-meta">
+              <div className="page-meta-item">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <circle cx="5.5" cy="5.5" r="4" stroke="currentColor" strokeWidth="1.2"/>
+                  <path d="M5.5 3v3l2 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                資料更新於 <strong>15:42</strong>
+              </div>
+              <div className="page-meta-item">
+                同步狀態：<strong style={{ color: 'var(--teal)' }}>● 即時</strong>
+              </div>
+            </div>
+          </div>
+
+          <MonthSummaryCards mode={mode}/>
+
+          <MonthHeatmap
+            mode={mode}
+            onDayClick={handleDayClick}
+            onWeekClick={handleWeekClick}
+            selectedDay={selectedDay}
+            selectedWeek={selectedWeek}
+          />
+
+          {weekViewVisible && (
+            <WeekView
+              mode={mode}
+              weekMode={weekMode}
+              setWeekMode={setWeekMode}
+              selectedWeek={selectedWeek}
+              onDayClick={handleDayClick}
+              selectedDay={selectedDay}
+            />
+          )}
+
+          {!weekViewVisible && (
+            <div className="card empty-state-card">
+              <div className="empty-state">
+                <div className="empty-icon">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect x="4" y="7" width="24" height="21" rx="3" stroke="currentColor" strokeWidth="1.5"/>
+                    <path d="M9 4v5M23 4v5M4 14h24" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <path d="M11 19l3 3 6-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+                <div className="empty-title">點擊上方日曆中的單日或週次以進入週分析</div>
+                <div className="empty-sub">建議從異常工時日（如 4/10、4/17）開始檢視</div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      <DayDrawer
+        open={drawerOpen} onClose={() => setDrawerOpen(false)}
+        mode={mode}
+        selectedDept={selectedDept}
+        selectedEmployee={selectedEmployee}
+      />
+
+      <TweaksPanel>
+        <TweakSection label="顯示設定" />
+        <TweakToggle
+          label="顯示週分析區塊"
+          value={tweaks.showWeekView}
+          onChange={v => { setTweak('showWeekView', v); setWeekViewVisible(v); }}
+        />
+        <TweakToggle
+          label="標記異常工時日"
+          value={tweaks.highlightAnomalies}
+          onChange={v => setTweak('highlightAnomalies', v)}
+        />
+        <TweakSection label="主視覺" />
+        <TweakRadio
+          label="主色調"
+          value={tweaks.accentColor}
+          onChange={v => setTweak('accentColor', v)}
+          options={[
+            { value: '#0D9488', label: '青' },
+            { value: '#2563EB', label: '藍' },
+            { value: '#7C3AED', label: '紫' },
+            { value: '#0F172A', label: '黑' },
+          ]}
+        />
+        <TweakSection label="互動" />
+        <TweakButton label="開啟單日詳情（4/10）" onClick={() => setDrawerOpen(true)} />
+        <TweakButton label="關閉抽屜" onClick={() => setDrawerOpen(false)} secondary />
+      </TweaksPanel>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+
+<style>
+.empty-state-card { padding: 0; }
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 48px 20px; text-align: center; gap: 6px;
+  color: var(--text-2);
+}
+.empty-icon {
+  width: 56px; height: 56px; border-radius: 12px;
+  background: var(--teal-bg); color: var(--teal);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 6px;
+}
+.empty-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.empty-sub { font-size: 12px; color: var(--text-3); }
+</style>
+
+</body>
+</html>
