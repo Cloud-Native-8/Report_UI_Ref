@@ -1,5 +1,5 @@
 // Week view with two modes
-function WeekView({ mode, weekMode, setWeekMode, selectedWeek, onDayClick, selectedDay }) {
+function WeekView({ mode, selectedEmployee, weekMode, setWeekMode, selectedWeek, onDayClick, selectedDay }) {
   const weekTitle = '4月6日 – 4月12日（W15）';
 
   const summaryCards = mode === 'dept' ? [
@@ -55,7 +55,9 @@ function WeekView({ mode, weekMode, setWeekMode, selectedWeek, onDayClick, selec
       </div>
 
       {weekMode === 'presence' ? (
-        <PresenceHeatmap mode={mode} onDayClick={onDayClick} selectedDay={selectedDay} />
+        mode === 'dept'
+          ? <PresenceHeatmap mode={mode} onDayClick={onDayClick} selectedDay={selectedDay} />
+          : <PersonalPresenceGantt selectedEmployee={selectedEmployee} onDayClick={onDayClick} selectedDay={selectedDay} />
       ) : (
         <HoursComparison mode={mode} onDayClick={onDayClick} selectedDay={selectedDay} />
       )}
@@ -202,6 +204,98 @@ function HoursComparison({ mode, onDayClick, selectedDay }) {
           <span className="hc-legend-swatch short"></span>
           &lt; 7h（偏短）
         </span>
+      </div>
+    </div>
+  );
+}
+
+function PersonalPresenceGantt({ selectedEmployee, onDayClick, selectedDay }) {
+  const DAY_START = 7;
+  const DAY_END = 22;
+  const SPAN = DAY_END - DAY_START;
+  const ticks = [8, 10, 12, 14, 16, 18, 20, 22];
+
+  const empData = (PERSONAL_WEEK_DATA[selectedEmployee] || PERSONAL_WEEK_DATA.alice);
+
+  const toPct = t => ((t - DAY_START) / SPAN) * 100;
+  const clamp = t => Math.max(DAY_START, Math.min(DAY_END, t));
+
+  const fmtTime = t => {
+    const h = Math.floor(t);
+    const m = Math.round((t - h) * 60);
+    return `${h.toString().padStart(2,'0')}:${m.toString().padStart(2,'0')}`;
+  };
+
+  return (
+    <div className="personal-gantt">
+      <div className="pg-hdr">
+        <div />
+        <div className="pg-axis">
+          {ticks.map(h => (
+            <div key={h} className="pg-tick" style={{ left: `${toPct(h)}%` }}>
+              {h.toString().padStart(2,'0')}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="pg-rows">
+        {empData.map((day, di) => {
+          const isSelected = day.day === selectedDay;
+          const isWeekend = day.dow === 0 || day.dow === 6;
+          const isEmpty = day.segments.length === 0;
+
+          return (
+            <div
+              key={di}
+              className={`pg-row${isSelected ? ' sel' : ''}${isEmpty ? ' off' : ''}`}
+              onClick={() => !isEmpty && onDayClick(day.day)}>
+              <div className="pg-row-label">
+                <span className={`pg-dow${isWeekend ? ' wkend' : ''}`}>週{day.label}</span>
+                <span className="pg-date-sm">{day.date}</span>
+              </div>
+              <div className="pg-track">
+                {ticks.map(h => (
+                  <div key={h} className="pg-vline" style={{ left: `${toPct(h)}%` }} />
+                ))}
+                <div className="pg-std" style={{
+                  left: `${toPct(9)}%`,
+                  width: `${toPct(18) - toPct(9)}%`,
+                }} />
+                {isEmpty ? (
+                  <span className="pg-off-txt">未到辦公室</span>
+                ) : (
+                  day.segments.map((seg, si) => {
+                    const endT = seg.end != null ? seg.end : clamp(day.lastSeen || DAY_END);
+                    const left = toPct(clamp(seg.start));
+                    const width = toPct(clamp(endT)) - left;
+                    const isMissing = seg.end == null;
+                    return (
+                      <div
+                        key={si}
+                        className={`pg-seg${isMissing ? ' missing' : ''}`}
+                        style={{ left: `${left}%`, width: `${width}%` }}
+                        title={`${fmtTime(seg.start)} – ${seg.end != null ? fmtTime(seg.end) : '未打卡離開 (最後見於 ' + fmtTime(day.lastSeen) + ')'}`}
+                      />
+                    );
+                  })
+                )}
+                {!isEmpty && (
+                  day.missing
+                    ? <span className="pg-meta warn">⚠ 未打卡</span>
+                    : <span className="pg-meta">{day.hours.toFixed(1)}h</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="pg-legend">
+        <span className="pg-leg"><span className="pg-leg-dot norm" />正常在場</span>
+        <span className="pg-leg"><span className="pg-leg-dot miss" />未打卡離開</span>
+        <div style={{ flex: 1 }} />
+        <span className="pg-leg-hint">點擊任一日進入單日詳情 →</span>
       </div>
     </div>
   );

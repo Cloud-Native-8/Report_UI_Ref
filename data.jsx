@@ -411,4 +411,25 @@ const DAY_DETAIL = {
   ]
 };
 
-Object.assign(window, { EMPLOYEES, ORG_TREE, FAVORITES, MONTH_DATA, WEEK_DATA, DAY_DETAIL });
+// Personal weekly presence data (segments per day for personal mode gantt)
+const PERSONAL_WEEK_DATA = {
+  alice: [
+    { label: '一', date: 'Apr 6',  day: 6,  dow: 1,
+      segments: [{ start: 8.5, end: 18.0 }], hours: 9.5, missing: false },
+    { label: '二', date: 'Apr 7',  day: 7,  dow: 2,
+      segments: [{ start: 8.0, end: 17.0 }], hours: 9.0, missing: false },
+    { label: '三', date: 'Apr 8',  day: 8,  dow: 3,
+      segments: [{ start: 7.7, end: 17.5 }], hours: 9.8, missing: false },
+    { label: '四', date: 'Apr 9',  day: 9,  dow: 4,
+      segments: [{ start: 9.5, end: 17.5 }], hours: 8.0, missing: false },
+    { label: '五', date: 'Apr 10', day: 10, dow: 5,
+      segments: [{ start: 8.0, end: 12.5 }, { start: 13.5, end: null }],
+      hours: null, missing: true, lastSeen: 21.8 },
+    { label: '六', date: 'Apr 11', day: 11, dow: 6,
+      segments: [], hours: 0, missing: false },
+    { label: '日', date: 'Apr 12', day: 12, dow: 0,
+      segments: [], hours: 0, missing: false },
+  ],
+};
+
+Object.assign(window, { EMPLOYEES, ORG_TREE, FAVORITES, MONTH_DATA, WEEK_DATA, DAY_DETAIL, PERSONAL_WEEK_DATA });
